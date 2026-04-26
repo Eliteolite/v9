@@ -9,17 +9,18 @@
         .admin-grid { display: grid; gap: 20px; text-align: left; }
         .accordion-item { background: rgba(255,255,255,0.03); border-radius: 12px; margin-bottom: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); }
         .accordion-header { padding: 15px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-        .accordion-content { display: none; padding: 20px; background: rgba(0,0,0,0.2); }
+        .accordion-content { display: none; padding: 20px; background: rgba(0,0,0,0.2); text-align: center; }
+        .winner-tag { font-size: 0.75rem; background: rgba(56, 189, 248, 0.15); color: var(--primary); padding: 4px 10px; border-radius: 20px; font-weight: bold; margin-left: 10px; }
     </style>
 </head>
 <body>
 <div class="container" style="max-width: 800px;">
     <header>
         <h1>Election Control Center</h1>
-        <p>Real-time results from Google Sheets</p>
+        <p>Live Results from Google Sheets</p>
     </header>
 
-    <div id="status-box" style="margin-bottom: 20px; color: var(--primary);">Connecting to cloud...</div>
+    <div id="status" style="margin-bottom: 20px; color: var(--primary); font-weight: bold;">Fetching cloud data...</div>
     
     <div class="admin-grid" id="mainDashboard"></div>
 </div>
@@ -29,22 +30,15 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXOhIa6_b0Ux7-p0LPy
 
 async function loadResults() {
     const dashboard = document.getElementById("mainDashboard");
-    const status = document.getElementById("status-box");
-
     try {
         const response = await fetch(`${SCRIPT_URL}?action=getResults`);
         const rows = await response.json();
-        
-        // Rows[x][2] contains the Selections JSON string from the sheet
         const votes = rows.map(r => ({ selections: JSON.parse(r[2]) }));
         
-        status.innerText = `Total Ballots Cast: ${votes.length}`;
+        document.getElementById("status").innerText = `Total Ballots Cast: ${votes.length}`;
         dashboard.innerHTML = "";
 
-        if (votes.length === 0) {
-            dashboard.innerHTML = "<p>No votes found in the database.</p>";
-            return;
-        }
+        if (votes.length === 0) return;
 
         const positions = Object.keys(votes[0].selections);
 
@@ -55,28 +49,41 @@ async function loadResults() {
                 counts[choice] = (counts[choice] || 0) + 1;
             });
 
+            // Find Winner
+            const entries = Object.entries(counts);
+            const winner = entries.reduce((a, b) => (a[1] > b[1] ? a : b));
+
             const id = pos.replace(/\s+/g, '');
             const item = document.createElement('div');
             item.className = 'accordion-item';
             item.innerHTML = `
                 <div class="accordion-header" onclick="toggleAccordion(this)">
-                    <strong>${pos}</strong>
+                    <div>
+                        <strong>${pos}</strong>
+                        <span class="winner-tag">🏆 ${winner[0]}</span>
+                    </div>
                     <span>+</span>
                 </div>
                 <div class="accordion-content">
-                    <canvas id="chart-${id}"></canvas>
+                    <div style="max-width: 300px; margin: 0 auto;">
+                        <canvas id="chart-${id}"></canvas>
+                    </div>
                 </div>
             `;
             dashboard.appendChild(item);
 
+            const labels = Object.keys(counts);
             new Chart(document.getElementById(`chart-${id}`), {
                 type: 'doughnut',
                 data: {
-                    labels: Object.keys(counts),
+                    labels: labels,
                     datasets: [{
                         data: Object.values(counts),
-                        backgroundColor: ['#38bdf8', '#818cf8', '#fb7185', '#34d399', '#facc15'],
-                        borderWidth: 0
+                        // Winner gets Primary Blue, others get muted grey
+                        backgroundColor: labels.map(l => l === winner[0] ? '#38bdf8' : 'rgba(255,255,255,0.1)'),
+                        borderWidth: 0,
+                        // Winner slice pops out
+                        offset: labels.map(l => l === winner[0] ? 20 : 0)
                     }]
                 },
                 options: {
@@ -85,7 +92,7 @@ async function loadResults() {
             });
         });
     } catch (e) {
-        status.innerText = "❌ Error connecting to Google Sheets.";
+        document.getElementById("status").innerText = "❌ Error: Could not connect to Google Sheets.";
     }
 }
 
@@ -93,7 +100,7 @@ function toggleAccordion(header) {
     const content = header.nextElementSibling;
     const isVisible = content.style.display === "block";
     content.style.display = isVisible ? "none" : "block";
-    header.querySelector('span').innerText = isVisible ? "+" : "-";
+    header.querySelector('span:last-child').innerText = isVisible ? "+" : "-";
 }
 
 loadResults();
