@@ -4,19 +4,6 @@
     <meta charset="UTF-8">
     <title>Review Your Ballot - NTIC</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        .ballot-header {
-            display: flex; justify-content: space-between; align-items: center;
-            background: rgba(255, 255, 255, 0.03); padding: 12px 20px;
-            border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        .ballot-id { font-family: monospace; color: var(--primary); font-weight: bold; }
-        .receipt-area { background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; overflow: hidden; margin-bottom: 20px; }
-        .confirm-row { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-        .pos-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); }
-        .candidate-val { font-weight: 600; color: white; margin-top: 4px; }
-        .edit-btn { background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer; }
-    </style>
 </head>
 <body>
 <div class="container">
@@ -26,15 +13,19 @@
     </header>
 
     <div class="card">
-        <div class="ballot-header">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.03); padding: 12px 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(255, 255, 255, 0.05);">
             <span>Ballot Token</span>
-            <span class="ballot-id" id="ballotToken"></span>
+            <span style="font-family: monospace; color: var(--primary); font-weight: bold;" id="ballotToken"></span>
         </div>
 
-        <div class="receipt-area" id="receiptList"></div>
+        <div id="receiptList" style="background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; overflow: hidden; margin-bottom: 20px;">
+            </div>
 
         <button id="submitBtn" onclick="submitVote()">Cast My Final Vote</button>
-        <button class="edit-btn" style="width: 100%; margin-top: 10px;" onclick="window.location.href='vote.html'">Back to Ballot</button>
+        
+        <p style="margin-top: 20px; font-size: 0.8rem; color: var(--text-muted);">
+            By clicking submit, your selections will be recorded permanently.
+        </p>
     </div>
 </div>
 
@@ -46,12 +37,12 @@ function renderReceipt() {
     let html = "";
     for (const pos in selections) {
         html += `
-        <div class="confirm-row">
-            <div class="pos-info">
-                <span class="pos-label">${pos}</span>
-                <div class="candidate-val">${selections[pos]}</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+            <div style="text-align: left;">
+                <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">${pos}</span>
+                <div style="font-weight: 600; color: white; margin-top: 4px;">${selections[pos]}</div>
             </div>
-            <button class="edit-btn" onclick="goToEdit('${pos}')">Change</button>
+            <button onclick="goToEdit('${pos}')" style="width: auto; padding: 6px 12px; font-size: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">Change</button>
         </div>`;
     }
     document.getElementById("receiptList").innerHTML = html;
@@ -65,10 +56,11 @@ function goToEdit(posName) {
 
 async function submitVote() {
     const btn = document.getElementById("submitBtn");
-    btn.innerText = "Syncing with Cloud Database...";
+    btn.innerText = "Encrypting & Submitting...";
     btn.disabled = true;
 
     try {
+        // This sends the data to your Google Sheet
         await fetch(SCRIPT_URL, {
             method: "POST",
             mode: "no-cors",
@@ -87,6 +79,7 @@ async function submitVote() {
     }
 }
 
+// Generate a random token for visual confirmation
 document.getElementById("ballotToken").innerText = "TX-" + Math.random().toString(36).substr(2, 6).toUpperCase();
 renderReceipt();
 </script>
