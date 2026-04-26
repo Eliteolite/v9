@@ -16,8 +16,17 @@
         .stats-wrapper { flex: 1.5; min-width: 300px; }
 
         .winner-badge { font-size: 0.7rem; background: #facc15; color: #000; padding: 4px 10px; border-radius: 20px; font-weight: 800; margin-left: 10px; }
+        
+        /* Button Styles */
         .csv-btn { background: rgba(255,255,255,0.1); color: var(--text-main); border: 1px solid rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; margin-top: 15px; transition: 0.3s; }
         .csv-btn:hover { background: var(--primary); color: #000; border-color: var(--primary); }
+        
+        .full-report-btn { 
+            width: 100%; padding: 18px; margin-top: 40px; background: #34d399; color: #064e3b; 
+            font-weight: 800; border: none; border-radius: 12px; cursor: pointer; font-size: 1rem;
+            text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 14px rgba(52, 211, 153, 0.3);
+        }
+        .full-report-btn:hover { background: #6ee7b7; transform: translateY(-2px); }
 
         .legend-list { list-style: none; padding: 0; margin: 0; }
         .legend-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
@@ -34,27 +43,33 @@
     </header>
     
     <div class="admin-grid" id="mainDashboard"></div>
+
+    <button id="downloadAllBtn" class="full-report-btn" style="display:none;" onclick="downloadFullReport()">
+        📥 Download Full Election Report (All Positions)
+    </button>
 </div>
 
 <script>
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXOhIa6_b0Ux7-p0LPy7X12lyFIcwfaIF50_moD7mcKp2K-XFZx9ZXYRkueWDwwchu/exec";
 const LOSER_COLORS = ['#38bdf8', '#818cf8', '#fb7185', '#34d399', '#a78bfa', '#f472b6', '#fbbf24', '#2dd4bf'];
+let cachedVotes = [];
 
 async function loadResults() {
     const dashboard = document.getElementById("mainDashboard");
     try {
         const response = await fetch(`${SCRIPT_URL}?action=getResults`);
         const rows = await response.json();
-        const votes = rows.map(r => ({ voter: r[1], selections: JSON.parse(r[2]) }));
+        cachedVotes = rows.map(r => ({ voter: r[1], selections: JSON.parse(r[2]) }));
         
-        document.getElementById("status").innerText = `Total Ballots Counted: ${votes.length}`;
+        document.getElementById("status").innerText = `Total Ballots Counted: ${cachedVotes.length}`;
+        document.getElementById("downloadAllBtn").style.display = "block";
         dashboard.innerHTML = "";
 
-        const positions = Object.keys(votes[0].selections);
+        const positions = Object.keys(cachedVotes[0].selections);
 
         positions.forEach(pos => {
             const counts = {};
-            votes.forEach(v => {
+            cachedVotes.forEach(v => {
                 const choice = v.selections[pos];
                 counts[choice] = (counts[choice] || 0) + 1;
             });
@@ -63,7 +78,6 @@ async function loadResults() {
             const maxVotes = sortedEntries[0][1];
             const winners = sortedEntries.filter(e => e[1] === maxVotes);
             
-            // Assign unique colors
             const chartData = sortedEntries.map((entry, index) => ({
                 name: entry[0],
                 count: entry[1],
@@ -95,8 +109,8 @@ async function loadResults() {
                                     </li>
                                 `).join('')}
                             </ul>
-                            <button class="csv-btn" onclick="downloadCSV('${pos}', ${JSON.stringify(votes).replace(/"/g, '&quot;')})">
-                                📥 Download ${pos} Results (CSV)
+                            <button class="csv-btn" onclick="downloadPositionCSV('${pos}')">
+                                📥 Download ${pos} Results
                             </button>
                         </div>
                     </div>
@@ -123,21 +137,42 @@ async function loadResults() {
     }
 }
 
-function downloadCSV(position, allVotes) {
+// Download CSV for a specific category
+function downloadPositionCSV(position) {
     let csv = "Voter ID,Selected Candidate\n";
-    allVotes.forEach(v => {
-        csv += `${v.voter},${v.selections[position]}\n`;
+    cachedVotes.forEach(v => {
+        csv += `${v.voter},"${v.selections[position]}"\n`;
+    });
+    triggerDownload(csv, `${position}_Results.csv`);
+}
+
+// Download Full Election CSV (All positions in one sheet)
+function downloadFullReport() {
+    if (cachedVotes.length === 0) return;
+    
+    const positions = Object.keys(cachedVotes[0].selections);
+    let csv = "Voter ID," + positions.map(p => `"${p}"`).join(",") + "\n";
+    
+    cachedVotes.forEach(v => {
+        let row = `${v.voter}`;
+        positions.forEach(p => {
+            row += `,"${v.selections[p]}"`;
+        });
+        csv += row + "\n";
     });
     
-    const blob = new Blob([csv], { type: 'text/csv' });
+    triggerDownload(csv, "Full_Election_Report_2026.csv");
+}
+
+function triggerDownload(csv, filename) {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.setAttribute('hidden', '');
-    a.setAttribute('href', url);
-    a.setAttribute('download', `${position}_Results.csv`);
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 function toggleAccordion(header) {
