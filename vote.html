@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <title>Vote - NTIC Elections</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .progress-box { margin-bottom: 25px; text-align: left; }
+        .bar-bg { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 8px; overflow: hidden; }
+        .bar-fill { height: 100%; background: var(--primary); transition: width 0.4s ease; box-shadow: 0 0 10px var(--primary); }
+        .nav-btns { display: flex; gap: 15px; margin-top: 30px; }
+        .btn-secondary { background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.1); }
+    </style>
 </head>
 <body>
 <div class="container">
@@ -12,7 +19,22 @@
         <p>Official SRC Election Portal</p>
     </header>
 
-    <div class="card" id="votingCard"></div>
+    <div class="card">
+        <div class="progress-box">
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted);">
+                <span id="display-pos">Position</span>
+                <span id="display-step">Step 1 of 11</span>
+            </div>
+            <div class="bar-bg"><div class="bar-fill" id="progressBar" style="width: 0%;"></div></div>
+        </div>
+
+        <div id="optionsList"></div>
+
+        <div class="nav-btns">
+            <button id="prevBtn" class="btn-secondary" onclick="move(-1)">Previous</button>
+            <button id="nextBtn" onclick="move(1)">Continue</button>
+        </div>
+    </div>
 
     <footer>© 2026 NTIC-KANO SRC Elections</footer>
 </div>
@@ -32,77 +54,64 @@ const positions = {
     "School Sister": ["TBD 1", "TBD 2"]
 };
 
-const positionKeys = Object.keys(positions);
-let currentIndex = 0;
+const keys = Object.keys(positions);
+let step = 0;
 let selections = JSON.parse(localStorage.getItem("selections") || "{}");
 
-// Handle specific edits from confirm page
+// Handle Jump from Confirm Page
 if (localStorage.getItem("jumpToPosition")) {
-    currentIndex = positionKeys.indexOf(localStorage.getItem("jumpToPosition"));
+    step = keys.indexOf(localStorage.getItem("jumpToPosition"));
 }
 
-function renderPosition() {
-    const currentPos = positionKeys[currentIndex];
+function render() {
+    const currentKey = keys[step];
     const isSingleEdit = localStorage.getItem("singleEditMode") === "true";
-    
-    let html = `
-        <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-            <h2 style="text-align: left; margin: 0;">${currentPos}</h2>
-            <span style="font-size: 0.8rem; color: var(--text-muted);">Step ${currentIndex + 1} of ${positionKeys.length}</span>
-        </div>
-    `;
 
-    positions[currentPos].forEach(name => {
-        const isChecked = (selections[currentPos] === name) ? "checked" : "";
+    document.getElementById("display-pos").innerText = currentKey;
+    document.getElementById("display-step").innerText = `Step ${step + 1} of ${keys.length}`;
+    document.getElementById("progressBar").style.width = ((step + 1) / keys.length * 100) + "%";
+    
+    let html = "";
+    positions[currentKey].forEach(name => {
+        const checked = (selections[currentKey] === name) ? "checked" : "";
         html += `
         <label class="option">
             <span style="font-size: 1.1rem; font-weight: 500;">${name}</span>
-            <input type="radio" name="candidate" value="${name}" ${isChecked} onchange="saveProgress('${currentPos}', '${name}')">
+            <input type="radio" name="c" value="${name}" ${checked} onchange="save('${currentKey}', '${name}')">
         </label>`;
     });
-
-    html += `<div style="display: flex; gap: 10px; margin-top: 20px;">`;
     
-    // Previous Button (Hidden on first step)
-    if (currentIndex > 0 && !isSingleEdit) {
-        html += `<button onclick="move(-1)" style="background: rgba(255,255,255,0.1); color: white;">Previous</button>`;
-    }
-
-    const btnText = isSingleEdit ? "Save & Return" : (currentIndex === positionKeys.length - 1 ? "Review Ballot" : "Continue");
-    html += `<button onclick="move(1)">${btnText}</button>`;
+    document.getElementById("optionsList").innerHTML = html;
     
-    html += `</div>`;
-    document.getElementById("votingCard").innerHTML = html;
+    // UI Logic for buttons
+    document.getElementById("prevBtn").style.display = (step === 0 || isSingleEdit) ? "none" : "block";
+    document.getElementById("nextBtn").innerText = isSingleEdit ? "Save & Return" : (step === keys.length - 1 ? "Review Ballot" : "Continue");
 }
 
-function saveProgress(pos, name) {
-    selections[pos] = name;
+function save(key, val) {
+    selections[key] = val;
     localStorage.setItem("selections", JSON.stringify(selections));
 }
 
 function move(dir) {
-    if (dir === 1) {
-        const selected = document.querySelector('input[name=\"candidate\"]:checked');
-        if (!selected) { alert("Please select a candidate to proceed."); return; }
-        
-        if (localStorage.getItem("singleEditMode") === "true") {
-            localStorage.removeItem("singleEditMode");
-            localStorage.removeItem("jumpToPosition");
-            window.location.href = "confirm.html";
-            return;
-        }
-
-        if (currentIndex === positionKeys.length - 1) {
-            window.location.href = "confirm.html";
-            return;
-        }
+    if (dir === 1 && !selections[keys[step]]) {
+        alert("Please select a candidate before proceeding.");
+        return;
     }
 
-    currentIndex += dir;
-    renderPosition();
+    if (localStorage.getItem("singleEditMode") === "true" && dir === 1) {
+        localStorage.removeItem("singleEditMode");
+        localStorage.removeItem("jumpToPosition");
+        window.location.href = "confirm.html";
+        return;
+    }
+
+    step += dir;
+    if (step >= keys.length) window.location.href = "confirm.html";
+    else render();
 }
 
-renderPosition();
+render();
 </script>
 </body>
 </html>
