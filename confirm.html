@@ -11,77 +11,47 @@
             border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(255, 255, 255, 0.05);
         }
         .ballot-id { font-family: monospace; color: var(--primary); font-weight: bold; }
-
-        .receipt-area {
-            background: rgba(15, 23, 42, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            overflow: hidden;
-            margin-bottom: 20px;
-        }
-        
-        .confirm-row {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 16px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            border-left: 4px solid transparent; transition: all 0.2s;
-        }
-        .confirm-row:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
-        .confirm-row:hover { border-left: 4px solid var(--primary); background: rgba(56, 189, 248, 0.05); }
-        
-        .pos-info { text-align: left; flex: 1; }
-        .pos-label { color: var(--text-muted); font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
-        .candidate-val { color: var(--primary); font-size: 1.1rem; font-weight: 600; }
-
-        .edit-btn {
-            background: rgba(255, 255, 255, 0.05); color: var(--text-muted);
-            border: 1px solid rgba(255, 255, 255, 0.1); padding: 6px 14px;
-            border-radius: 6px; font-size: 0.75rem; cursor: pointer; width: auto;
-        }
-        .edit-btn:hover { background: var(--text-main); color: var(--bg-dark); }
-
-        .final-warning {
-            background: rgba(251, 113, 133, 0.1); border: 1px solid rgba(251, 113, 133, 0.2);
-            color: #fb7185; padding: 15px; border-radius: 12px; font-size: 0.85rem;
-        }
+        .receipt-area { background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; overflow: hidden; margin-bottom: 20px; }
+        .confirm-row { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .pos-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); }
+        .candidate-val { font-weight: 600; color: white; margin-top: 4px; }
+        .edit-btn { background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer; }
     </style>
 </head>
 <body>
-<div class="container" style="max-width: 650px;">
+<div class="container">
     <header>
-        <h1>NTIC - KANO</h1>
-        <p>Review Your Selection</p>
+        <h1>Review Your Ballot</h1>
+        <p>Ensure your selections are correct before submitting.</p>
     </header>
 
     <div class="card">
         <div class="ballot-header">
-            <span style="font-size: 0.75rem; color: var(--text-muted);">VOTER SESSION TOKEN:</span>
-            <span class="ballot-id" id="ballotToken">GENERATING...</span>
+            <span>Ballot Token</span>
+            <span class="ballot-id" id="ballotToken"></span>
         </div>
 
         <div class="receipt-area" id="receiptList"></div>
 
-        <div class="final-warning">⚠️ Note: Once submitted, your choices are final.</div>
-
-        <button onclick="submitVote()" id="submitBtn" style="margin-top: 25px;">Cast My Final Vote</button>
+        <button id="submitBtn" onclick="submitVote()">Cast My Final Vote</button>
+        <button class="edit-btn" style="width: 100%; margin-top: 10px;" onclick="window.location.href='vote.html'">Back to Ballot</button>
     </div>
 </div>
 
 <script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXOhIa6_b0Ux7-p0LPy7X12lyFIcwfaIF50_moD7mcKp2K-XFZx9ZXYRkueWDwwchu/exec";
 const selections = JSON.parse(localStorage.getItem("selections") || "{}");
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwkCp9J4GfAKK2GAyXKBo9suNhrL69ycyiq1dvDZ8iRY2WcTWrJ9ViGI9fJsGsQFVeT9Q/exec";
 
 function renderReceipt() {
     let html = "";
-    for (let pos in selections) {
+    for (const pos in selections) {
         html += `
         <div class="confirm-row">
             <div class="pos-info">
                 <span class="pos-label">${pos}</span>
                 <div class="candidate-val">${selections[pos]}</div>
             </div>
-            <div class="action-area">
-                <button class="edit-btn" onclick="goToEdit('${pos}')">Change</button>
-            </div>
+            <button class="edit-btn" onclick="goToEdit('${pos}')">Change</button>
         </div>`;
     }
     document.getElementById("receiptList").innerHTML = html;
@@ -95,13 +65,13 @@ function goToEdit(posName) {
 
 async function submitVote() {
     const btn = document.getElementById("submitBtn");
-    btn.innerText = "Encrypting & Submitting...";
+    btn.innerText = "Syncing with Cloud Database...";
     btn.disabled = true;
 
     try {
-        await fetch(GOOGLE_SCRIPT_URL, {
-            method: "POST", mode: "no-cors",
-            headers: { "Content-Type": "application/json" },
+        await fetch(SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
             body: JSON.stringify({
                 voter: localStorage.getItem("currentVoter") || "Anonymous",
                 selections: selections
@@ -111,7 +81,7 @@ async function submitVote() {
         localStorage.removeItem("selections");
         window.location.href = "thankyou.html";
     } catch (e) {
-        alert("Submission failed. Check connection.");
+        alert("Submission failed. Check your internet connection.");
         btn.disabled = false;
         btn.innerText = "Cast My Final Vote";
     }
