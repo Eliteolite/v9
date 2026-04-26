@@ -11,24 +11,26 @@
         .accordion-header { padding: 15px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
         .accordion-content { display: none; padding: 25px; background: rgba(0,0,0,0.3); }
         
-        .result-container { display: flex; flex-wrap: wrap; gap: 30px; align-items: center; justify-content: center; }
-        .chart-wrapper { flex: 1; min-width: 250px; max-width: 300px; }
-        .stats-wrapper { flex: 1; min-width: 280px; }
+        .result-container { display: flex; flex-wrap: wrap; gap: 30px; align-items: center; }
+        .chart-wrapper { flex: 1; min-width: 250px; max-width: 300px; position: relative; }
+        .stats-wrapper { flex: 1.5; min-width: 300px; }
 
-        .winner-badge { font-size: 0.75rem; background: #facc15; color: #000; padding: 4px 12px; border-radius: 20px; font-weight: 800; text-transform: uppercase; margin-left: 10px; }
-        .tie-badge { background: #94a3b8; color: #000; }
+        .winner-badge { font-size: 0.7rem; background: #facc15; color: #000; padding: 4px 10px; border-radius: 20px; font-weight: 800; margin-left: 10px; }
+        .csv-btn { background: rgba(255,255,255,0.1); color: var(--text-main); border: 1px solid rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; margin-top: 15px; transition: 0.3s; }
+        .csv-btn:hover { background: var(--primary); color: #000; border-color: var(--primary); }
 
-        .rank-list { list-style: none; padding: 0; margin: 0; width: 100%; }
-        .rank-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem; }
-        .rank-item.is-winner { color: #facc15; font-weight: bold; }
-        .vote-count { font-family: monospace; background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 4px; }
+        .legend-list { list-style: none; padding: 0; margin: 0; }
+        .legend-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .color-dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 12px; display: inline-block; }
+        .vote-pill { background: rgba(255,255,255,0.1); padding: 2px 10px; border-radius: 12px; font-size: 0.85rem; font-family: monospace; }
+        .is-winner { color: #facc15; font-weight: 700; }
     </style>
 </head>
 <body>
-<div class="container" style="max-width: 900px;">
+<div class="container" style="max-width: 950px;">
     <header>
-        <h1>Election Results Dashboard</h1>
-        <p id="status">Connecting to Cloud Database...</p>
+        <h1>Election Control Center</h1>
+        <p id="status">Syncing with Google Sheets...</p>
     </header>
     
     <div class="admin-grid" id="mainDashboard"></div>
@@ -36,18 +38,17 @@
 
 <script>
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXOhIa6_b0Ux7-p0LPy7X12lyFIcwfaIF50_moD7mcKp2K-XFZx9ZXYRkueWDwwchu/exec";
+const LOSER_COLORS = ['#38bdf8', '#818cf8', '#fb7185', '#34d399', '#a78bfa', '#f472b6', '#fbbf24', '#2dd4bf'];
 
 async function loadResults() {
     const dashboard = document.getElementById("mainDashboard");
     try {
         const response = await fetch(`${SCRIPT_URL}?action=getResults`);
         const rows = await response.json();
-        const votes = rows.map(r => ({ selections: JSON.parse(r[2]) }));
+        const votes = rows.map(r => ({ voter: r[1], selections: JSON.parse(r[2]) }));
         
         document.getElementById("status").innerText = `Total Ballots Counted: ${votes.length}`;
         dashboard.innerHTML = "";
-
-        if (votes.length === 0) return;
 
         const positions = Object.keys(votes[0].selections);
 
@@ -58,25 +59,25 @@ async function loadResults() {
                 counts[choice] = (counts[choice] || 0) + 1;
             });
 
-            // Logic to find Winner(s) and handle Ties
             const sortedEntries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
             const maxVotes = sortedEntries[0][1];
-            const winners = sortedEntries.filter(entry => entry[1] === maxVotes);
-            const isTie = winners.length > 1;
+            const winners = sortedEntries.filter(e => e[1] === maxVotes);
+            
+            // Assign unique colors
+            const chartData = sortedEntries.map((entry, index) => ({
+                name: entry[0],
+                count: entry[1],
+                color: entry[1] === maxVotes ? '#facc15' : LOSER_COLORS[index % LOSER_COLORS.length]
+            }));
 
             const id = pos.replace(/\s+/g, '');
             const item = document.createElement('div');
             item.className = 'accordion-item';
-
-            // Header UI with Tie/Winner Detection
-            const badgeClass = isTie ? 'winner-badge tie-badge' : 'winner-badge';
-            const badgeText = isTie ? `👔 Tie: ${winners.length} Candidates` : `🏆 Winner: ${winners[0][0]}`;
-
             item.innerHTML = `
                 <div class="accordion-header" onclick="toggleAccordion(this)">
                     <div>
                         <strong>${pos}</strong>
-                        <span class="${badgeClass}">${badgeText}</span>
+                        <span class="winner-badge">${winners.length > 1 ? '👔 Tie' : '🏆 Winner'}: ${winners.map(w => w[0]).join(' & ')}</span>
                     </div>
                     <span>+</span>
                 </div>
@@ -86,44 +87,57 @@ async function loadResults() {
                             <canvas id="chart-${id}"></canvas>
                         </div>
                         <div class="stats-wrapper">
-                            <ul class="rank-list">
-                                ${sortedEntries.map(([name, count]) => `
-                                    <li class="rank-item ${count === maxVotes ? 'is-winner' : ''}">
-                                        <span>${count === maxVotes ? '⭐ ' : ''}${name}</span>
-                                        <span class="vote-count">${count} votes</span>
+                            <ul class="legend-list">
+                                ${chartData.map(d => `
+                                    <li class="legend-item ${d.count === maxVotes ? 'is-winner' : ''}">
+                                        <span><span class="color-dot" style="background:${d.color}"></span>${d.name}</span>
+                                        <span class="vote-pill">${d.count} Votes</span>
                                     </li>
                                 `).join('')}
                             </ul>
+                            <button class="csv-btn" onclick="downloadCSV('${pos}', ${JSON.stringify(votes).replace(/"/g, '&quot;')})">
+                                📥 Download ${pos} Results (CSV)
+                            </button>
                         </div>
                     </div>
                 </div>
             `;
             dashboard.appendChild(item);
 
-            // Chart Rendering
-            const labels = sortedEntries.map(e => e[0]);
-            const dataValues = sortedEntries.map(e => e[1]);
-
             new Chart(document.getElementById(`chart-${id}`), {
                 type: 'doughnut',
                 data: {
-                    labels: labels,
+                    labels: chartData.map(d => d.name),
                     datasets: [{
-                        data: dataValues,
-                        backgroundColor: labels.map(l => winners.some(w => w[0] === l) ? '#facc15' : 'rgba(255,255,255,0.1)'),
+                        data: chartData.map(d => d.count),
+                        backgroundColor: chartData.map(d => d.color),
                         borderWidth: 0,
-                        offset: labels.map(l => winners.some(w => w[0] === l) ? 15 : 0)
+                        offset: chartData.map(d => d.count === maxVotes ? 15 : 0)
                     }]
                 },
-                options: {
-                    cutout: '70%',
-                    plugins: { legend: { display: false } }
-                }
+                options: { cutout: '65%', plugins: { legend: { display: false } } }
             });
         });
     } catch (e) {
-        document.getElementById("status").innerText = "❌ Error: Could not sync data.";
+        document.getElementById("status").innerText = "❌ Error fetching results.";
     }
+}
+
+function downloadCSV(position, allVotes) {
+    let csv = "Voter ID,Selected Candidate\n";
+    allVotes.forEach(v => {
+        csv += `${v.voter},${v.selections[position]}\n`;
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `${position}_Results.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 }
 
 function toggleAccordion(header) {
