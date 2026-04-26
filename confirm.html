@@ -22,10 +22,6 @@
             </div>
 
         <button id="submitBtn" onclick="submitVote()">Cast My Final Vote</button>
-        
-        <p style="margin-top: 20px; font-size: 0.8rem; color: var(--text-muted);">
-            By clicking submit, your selections will be recorded permanently.
-        </p>
     </div>
 </div>
 
@@ -42,7 +38,9 @@ function renderReceipt() {
                 <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">${pos}</span>
                 <div style="font-weight: 600; color: white; margin-top: 4px;">${selections[pos]}</div>
             </div>
-            <button onclick="goToEdit('${pos}')" style="width: auto; padding: 6px 12px; font-size: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">Change</button>
+            <button onclick="goToEdit('${pos}')" style="width: auto; padding: 8px 16px; font-size: 0.75rem; background: var(--primary); color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                Change
+            </button>
         </div>`;
     }
     document.getElementById("receiptList").innerHTML = html;
@@ -60,7 +58,6 @@ async function submitVote() {
     btn.disabled = true;
 
     try {
-        // This sends the data to your Google Sheet
         await fetch(SCRIPT_URL, {
             method: "POST",
             mode: "no-cors",
@@ -73,13 +70,12 @@ async function submitVote() {
         localStorage.removeItem("selections");
         window.location.href = "thankyou.html";
     } catch (e) {
-        alert("Submission failed. Check your internet connection.");
+        alert("Submission failed. Check connection.");
         btn.disabled = false;
         btn.innerText = "Cast My Final Vote";
     }
 }
 
-// Generate a random token for visual confirmation
 document.getElementById("ballotToken").innerText = "TX-" + Math.random().toString(36).substr(2, 6).toUpperCase();
 renderReceipt();
 </script>
