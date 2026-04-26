@@ -12,26 +12,19 @@
         .accordion-content { display: none; padding: 25px; background: rgba(0,0,0,0.3); }
         
         .result-container { display: flex; flex-wrap: wrap; gap: 30px; align-items: center; }
-        .chart-wrapper { flex: 1; min-width: 250px; max-width: 300px; position: relative; }
+        .chart-wrapper { flex: 1; min-width: 250px; max-width: 300px; }
         .stats-wrapper { flex: 1.5; min-width: 300px; }
 
         .winner-badge { font-size: 0.7rem; background: #facc15; color: #000; padding: 4px 10px; border-radius: 20px; font-weight: 800; margin-left: 10px; }
         
-        /* Button Styles */
-        .csv-btn { background: rgba(255,255,255,0.1); color: var(--text-main); border: 1px solid rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; margin-top: 15px; transition: 0.3s; }
-        .csv-btn:hover { background: var(--primary); color: #000; border-color: var(--primary); }
-        
-        .full-report-btn { 
-            width: 100%; padding: 18px; margin-top: 40px; background: #34d399; color: #064e3b; 
-            font-weight: 800; border: none; border-radius: 12px; cursor: pointer; font-size: 1rem;
-            text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 14px rgba(52, 211, 153, 0.3);
-        }
-        .full-report-btn:hover { background: #6ee7b7; transform: translateY(-2px); }
+        .csv-btn { background: rgba(255,255,255,0.1); color: var(--text-main); border: 1px solid rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; margin-top: 15px; }
+        .full-report-btn { width: 100%; padding: 18px; margin-top: 40px; background: #34d399; color: #064e3b; font-weight: 800; border: none; border-radius: 12px; cursor: pointer; text-transform: uppercase; }
+        .reset-btn { width: 100%; padding: 18px; margin-top: 15px; background: #fb7185; color: white; font-weight: 800; border: none; border-radius: 12px; cursor: pointer; text-transform: uppercase; opacity: 0.8; }
+        .reset-btn:hover { opacity: 1; box-shadow: 0 0 15px rgba(251, 113, 133, 0.4); }
 
         .legend-list { list-style: none; padding: 0; margin: 0; }
         .legend-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .color-dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 12px; display: inline-block; }
-        .vote-pill { background: rgba(255,255,255,0.1); padding: 2px 10px; border-radius: 12px; font-size: 0.85rem; font-family: monospace; }
         .is-winner { color: #facc15; font-weight: 700; }
     </style>
 </head>
@@ -39,18 +32,17 @@
 <div class="container" style="max-width: 950px;">
     <header>
         <h1>Election Control Center</h1>
-        <p id="status">Syncing with Google Sheets...</p>
+        <p id="status">Syncing with Cloud Database...</p>
     </header>
     
     <div class="admin-grid" id="mainDashboard"></div>
 
-    <button id="downloadAllBtn" class="full-report-btn" style="display:none;" onclick="downloadFullReport()">
-        📥 Download Full Election Report (All Positions)
-    </button>
+    <button id="downloadAllBtn" class="full-report-btn" style="display:none;" onclick="downloadFullReport()">📥 Download Full Election Report</button>
+    <button id="resetBtn" class="reset-btn" style="display:none;" onclick="resetElection()">⚠️ Nuclear Reset (Clear All Data)</button>
 </div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXOhIa6_b0Ux7-p0LPy7X12lyFIcwfaIF50_moD7mcKp2K-XFZx9ZXYRkueWDwwchu/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz8Ms4hjbUJfVe85kIko2dzpobsDRCicOVGQQjt_S1aJPKPs6VmyQuxIvyWAYyBinlWxA/exec";
 const LOSER_COLORS = ['#38bdf8', '#818cf8', '#fb7185', '#34d399', '#a78bfa', '#f472b6', '#fbbf24', '#2dd4bf'];
 let cachedVotes = [];
 
@@ -63,7 +55,13 @@ async function loadResults() {
         
         document.getElementById("status").innerText = `Total Ballots Counted: ${cachedVotes.length}`;
         document.getElementById("downloadAllBtn").style.display = "block";
+        document.getElementById("resetBtn").style.display = "block";
         dashboard.innerHTML = "";
+
+        if (cachedVotes.length === 0) {
+            dashboard.innerHTML = "<p style='padding:50px; color:var(--text-muted);'>No votes recorded yet.</p>";
+            return;
+        }
 
         const positions = Object.keys(cachedVotes[0].selections);
 
@@ -97,21 +95,17 @@ async function loadResults() {
                 </div>
                 <div class="accordion-content">
                     <div class="result-container">
-                        <div class="chart-wrapper">
-                            <canvas id="chart-${id}"></canvas>
-                        </div>
+                        <div class="chart-wrapper"><canvas id="chart-${id}"></canvas></div>
                         <div class="stats-wrapper">
                             <ul class="legend-list">
                                 ${chartData.map(d => `
                                     <li class="legend-item ${d.count === maxVotes ? 'is-winner' : ''}">
                                         <span><span class="color-dot" style="background:${d.color}"></span>${d.name}</span>
-                                        <span class="vote-pill">${d.count} Votes</span>
+                                        <span>${d.count} Votes</span>
                                     </li>
                                 `).join('')}
                             </ul>
-                            <button class="csv-btn" onclick="downloadPositionCSV('${pos}')">
-                                📥 Download ${pos} Results
-                            </button>
+                            <button class="csv-btn" onclick="downloadPositionCSV('${pos}')">📥 Download ${pos} CSV</button>
                         </div>
                     </div>
                 </div>
@@ -132,54 +126,54 @@ async function loadResults() {
                 options: { cutout: '65%', plugins: { legend: { display: false } } }
             });
         });
-    } catch (e) {
-        document.getElementById("status").innerText = "❌ Error fetching results.";
-    }
+    } catch (e) { document.getElementById("status").innerText = "❌ No data found or connection error."; }
 }
 
-// Download CSV for a specific category
-function downloadPositionCSV(position) {
-    let csv = "Voter ID,Selected Candidate\n";
+async function resetElection() {
+    if (!confirm("🚨 WARNING: Delete ALL election data forever?")) return;
+    if (!confirm("FINAL CONFIRMATION: This cannot be undone. Proceed?")) return;
+
+    document.getElementById("status").innerText = "Wiping database...";
+    try {
+        await fetch(SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            body: JSON.stringify({ action: "reset" })
+        });
+        alert("Election data cleared.");
+        localStorage.clear();
+        window.location.reload();
+    } catch (e) { alert("Reset failed: " + e.message); }
+}
+
+function downloadFullReport() {
+    const positions = Object.keys(cachedVotes[0].selections);
+    let csv = "Voter ID," + positions.join(",") + "\n";
     cachedVotes.forEach(v => {
-        csv += `${v.voter},"${v.selections[position]}"\n`;
+        csv += `${v.voter},` + positions.map(p => `"${v.selections[p]}"`).join(",") + "\n";
     });
+    triggerDownload(csv, "Full_Election_Report.csv");
+}
+
+function downloadPositionCSV(position) {
+    let csv = "Voter ID,Choice\n";
+    cachedVotes.forEach(v => { csv += `${v.voter},"${v.selections[position]}"\n`; });
     triggerDownload(csv, `${position}_Results.csv`);
 }
 
-// Download Full Election CSV (All positions in one sheet)
-function downloadFullReport() {
-    if (cachedVotes.length === 0) return;
-    
-    const positions = Object.keys(cachedVotes[0].selections);
-    let csv = "Voter ID," + positions.map(p => `"${p}"`).join(",") + "\n";
-    
-    cachedVotes.forEach(v => {
-        let row = `${v.voter}`;
-        positions.forEach(p => {
-            row += `,"${v.selections[p]}"`;
-        });
-        csv += row + "\n";
-    });
-    
-    triggerDownload(csv, "Full_Election_Report_2026.csv");
-}
-
 function triggerDownload(csv, filename) {
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", filename);
-    document.body.appendChild(link);
+    link.href = url;
+    link.download = filename;
     link.click();
-    document.body.removeChild(link);
 }
 
 function toggleAccordion(header) {
     const content = header.nextElementSibling;
-    const isVisible = content.style.display === "block";
-    content.style.display = isVisible ? "none" : "block";
-    header.querySelector('span:last-child').innerText = isVisible ? "+" : "-";
+    content.style.display = content.style.display === "block" ? "none" : "block";
+    header.querySelector('span:last-child').innerText = content.style.display === "block" ? "-" : "+";
 }
 
 loadResults();
