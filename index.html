@@ -21,7 +21,12 @@
             100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
         }
         .input-group { text-align: left; margin-top: 20px; }
-        .error-msg { color: #fb7185; font-size: 0.85rem; margin-top: 8px; min-height: 1.2em; }
+        .error-msg { color: #fb7185; font-size: 0.85rem; margin-top: 8px; min-height: 1.2em; font-weight: 500; }
+        
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; margin: 0; 
+        }
     </style>
 </head>
 <body>
@@ -39,12 +44,16 @@
         
         <h2 style="margin-bottom: 10px;">Voter Authentication</h2>
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 30px;">
-            Please enter your ID to access your digital ballot.
+            Please enter your Admission Number to access your ballot.
         </p>
 
         <div class="input-group">
-            <label for="studentId">Student Admission Number</label>
-            <input type="text" id="studentId" placeholder="e.g. KAN/2026/123" autocomplete="off" style="text-transform: uppercase;">
+            <label for="studentId">Admission Number</label>
+            <input type="text" id="studentId" 
+                   placeholder="e.g. 5042*****" 
+                   inputmode="numeric" 
+                   pattern="[0-9]*"
+                   autocomplete="off">
             <p id="error" class="error-msg"></p>
         </div>
 
@@ -58,53 +67,52 @@
 </div>
 
 <script>
-// Your specific Google Apps Script Web App URL
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9ILj5eiKIxfNVsmSfxYg653hLEJ-sPEIbJu2Sc400MSnQyA1dKFYmu1T3-YXdlOA/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNxFMBm7hTPdO9BTmnx0QUB9BTneG9lnBcB6VundIrC0-zDINYnukwjw6XiV4eNmfT/exec";
 
 async function startVoting() {
     const idInput = document.getElementById("studentId");
     const errorDiv = document.getElementById("error");
     const btn = document.getElementById("loginBtn");
-    const id = idInput.value.trim().toUpperCase();
+    const id = idInput.value.trim();
 
-    // Reset UI state
     errorDiv.innerText = "";
     idInput.style.borderColor = "rgba(255, 255, 255, 0.1)";
 
     if (!id) {
-        errorDiv.innerText = "⚠ ID is required to access the election.";
+        errorDiv.innerText = "⚠ Admission Number is required.";
         idInput.style.borderColor = "#fb7185";
         return;
     }
 
-    btn.innerText = "Verifying Credentials...";
+    if (isNaN(id)) {
+        errorDiv.innerText = "⚠ Please enter a valid numerical ID.";
+        idInput.style.borderColor = "#fb7185";
+        return;
+    }
+
+    btn.innerText = "Verifying ID...";
     btn.disabled = true;
 
     try {
-        // Sends the ID to the Google Script for verification and duplicate check
         const response = await fetch(`${SCRIPT_URL}?id=${encodeURIComponent(id)}`);
         const result = await response.json();
 
         if (result.valid) {
-            // Success: Store ID and proceed to voting page
             localStorage.setItem("currentVoter", id);
             window.location.href = "vote.html";
         } else {
-            // Failure: Show specific message (e.g., "Already voted" or "ID not found")
-            errorDiv.innerText = "❌ " + (result.message || "Invalid or ineligible ID.");
+            errorDiv.innerText = "❌ " + (result.message || "Access Denied.");
             idInput.style.borderColor = "#fb7185";
             btn.disabled = false;
             btn.innerText = "Verify & Access Ballot";
         }
     } catch (e) {
-        // Network or Script error
-        errorDiv.innerText = "⚠ Connection error. Please check your internet and try again.";
+        errorDiv.innerText = "⚠ Connection error. Check your network and try again.";
         btn.disabled = false;
         btn.innerText = "Verify & Access Ballot";
     }
 }
 
-// Allow "Enter" key to trigger the login button
 document.getElementById("studentId").addEventListener("keypress", (e) => {
     if (e.key === "Enter") startVoting();
 });
