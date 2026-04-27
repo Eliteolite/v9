@@ -20,6 +20,8 @@
             70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(52, 211, 153, 0); }
             100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
         }
+        .input-group { text-align: left; margin-top: 20px; }
+        .error-msg { color: #fb7185; font-size: 0.85rem; margin-top: 8px; min-height: 1.2em; }
     </style>
 </head>
 <body>
@@ -30,9 +32,15 @@
     </header>
 
     <div class="card">
-        <div class="live-badge"><div class="pulse"></div>Election is Live</div>
+        <div class="live-badge">
+            <div class="pulse"></div>
+            Election is Live
+        </div>
+        
         <h2 style="margin-bottom: 10px;">Voter Authentication</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 30px;">Please enter your ID to access your digital ballot.</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 30px;">
+            Please enter your ID to access your digital ballot.
+        </p>
 
         <div class="input-group">
             <label for="studentId">Student Admission Number</label>
@@ -50,7 +58,8 @@
 </div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzuPc9s-T5I3-He1_YsyUDCVRDqPREltCrr_h3cXB5zQf7n5z2fzYbnI0TxDeoaOANP/exec";
+// Your specific Google Apps Script Web App URL
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzj4fNLoYmyZVT77tJhmCM7ccl9gpLgHpqa0bNxzzcNnkHWJafdeQ2uYWhd3zxNAFjG/exec";
 
 async function startVoting() {
     const idInput = document.getElementById("studentId");
@@ -58,35 +67,44 @@ async function startVoting() {
     const btn = document.getElementById("loginBtn");
     const id = idInput.value.trim().toUpperCase();
 
+    // Reset UI state
+    errorDiv.innerText = "";
+    idInput.style.borderColor = "rgba(255, 255, 255, 0.1)";
+
     if (!id) {
         errorDiv.innerText = "⚠ ID is required to access the election.";
         idInput.style.borderColor = "#fb7185";
         return;
     }
 
-    btn.innerText = "Verifying ID...";
+    btn.innerText = "Verifying Credentials...";
     btn.disabled = true;
 
     try {
+        // Sends the ID to the Google Script for verification and duplicate check
         const response = await fetch(`${SCRIPT_URL}?id=${encodeURIComponent(id)}`);
         const result = await response.json();
 
         if (result.valid) {
+            // Success: Store ID and proceed to voting page
             localStorage.setItem("currentVoter", id);
             window.location.href = "vote.html";
         } else {
-            errorDiv.innerText = "❌ This ID is not eligible to vote.";
+            // Failure: Show specific message (e.g., "Already voted" or "ID not found")
+            errorDiv.innerText = "❌ " + (result.message || "Invalid or ineligible ID.");
             idInput.style.borderColor = "#fb7185";
             btn.disabled = false;
             btn.innerText = "Verify & Access Ballot";
         }
     } catch (e) {
-        errorDiv.innerText = "⚠ Connection error. Please try again.";
+        // Network or Script error
+        errorDiv.innerText = "⚠ Connection error. Please check your internet and try again.";
         btn.disabled = false;
         btn.innerText = "Verify & Access Ballot";
     }
 }
 
+// Allow "Enter" key to trigger the login button
 document.getElementById("studentId").addEventListener("keypress", (e) => {
     if (e.key === "Enter") startVoting();
 });
