@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Election Results - NTIC</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background: radial-gradient(circle at top, #0f172a, #020617);
+        }
+        .container { max-width: 850px; }
+        
+        /* Celebration Header */
+        .celebration-banner {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(245, 158, 11, 0.05));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+        .trophy-icon {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+            display: inline-block;
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        /* Results Layout Grid */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 25px;
+            text-align: left;
+        }
+        
+        .position-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+        .position-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+
+        .position-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-main);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 10px;
+        }
+
+        /* Visual Breakdown Layout */
+        .chart-box {
+            max-width: 180px;
+            margin: 0 auto;
+        }
+
+        .winner-box {
+            background: rgba(245, 158, 11, 0.06);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            border-radius: 12px;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .winner-name {
+            font-weight: 700;
+            color: #facc15;
+            font-size: 1rem;
+        }
+        .winner-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            background: #facc15;
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-weight: 800;
+        }
+
+        /* Runner up listing styling */
+        .voters-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .candidate-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        .candidate-row.is-winner-row {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+        .color-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        .total-badge {
+            font-size: 0.8rem;
+            color: var(--primary);
+            background: rgba(56, 189, 248, 0.1);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    
+    <div class="celebration-banner">
+        <span class="trophy-icon">🏆</span>
+        <h1 style="color: #facc15; font-size: 2.2rem; letter-spacing: -0.5px;">Official Election Results</h1>
+        <p style="margin-top: 8px; font-size: 1.1rem;">NTIC-KANO (GIRLS) SRC ELECTIONS 2026</p>
+        <p id="totalBallots" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 15px; background: rgba(255,255,255,0.03); display: inline-block; padding: 6px 16px; border-radius: 30px;">
+            Gathering final ballot counts...
+        </p>
+    </div>
+
+    <div class="results-grid" id="publicDashboard"></div>
+
+    <footer>
+        <p>Thank you to all candidates and voters for an incredible election season.</p>
+        <p>© 2026 NTIC-KANO (GIRLS) SRC Portal</p>
+    </footer>
+</div>
+
+<script>
+// Backend Configurations
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNxFMBm7hTPdO9BTmnx0QUB9BTneG9lnBcB6VundIrC0-zDINYnukwjw6XiV4eNmfT/exec";
+const DONUT_COLORS = ['#facc15', '#38bdf8', '#a78bfa', '#fb7185', '#34d399', '#f472b6', '#fbbf24', '#2dd4bf'];
+
+async function renderPublicResults() {
+    const grid = document.getElementById("publicDashboard");
+    try {
+        const response = await fetch(`${SCRIPT_URL}?action=getResults`);
+        const rows = await response.json();
+        
+        // Map raw database rows to vote arrays
+        const totalVotes = rows.map(r => ({ selections: JSON.parse(r[2]) }));
+        document.getElementById("totalBallots").innerText = `✨ Total Student Participation: ${totalVotes.length} Ballots Cast ✨`;
+
+        if (totalVotes.length === 0) {
+            grid.innerHTML = "<p style='grid-column: 1/-1; padding:50px; color:var(--text-muted); text-align:center;'>Results are being calculated. Check back shortly!</p>";
+            return;
+        }
+
+        // Target predefined election slots directly from keys
+        const positions = Object.keys(totalVotes[0].selections);
+        grid.innerHTML = "";
+
+        positions.forEach(pos => {
+            const tally = {};
+            totalVotes.forEach(v => {
+                const choice = v.selections[pos];
+                if(choice) tally[choice] = (tally[choice] || 0) + 1;
+            });
+
+            // Sort contestants from first to last
+            const sortedData = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+            const maxVotes = sortedData.length > 0 ? sortedData[0][1] : 0;
+            
+            // Check for potential ties
+            const winners = sortedData.filter(e => e[1] === maxVotes);
+            const winnerText = winners.map(w => w[0]).join(" & ");
+            const isTie = winners.length > 1;
+
+            // Generate clean layout structures
+            const cardId = pos.replace(/\s+/g, '');
+            const card = document.createElement('div');
+            card.className = 'position-card';
+            
+            card.innerHTML = `
+                <div class="position-title">${pos}</div>
+                
+                <div class="winner-box">
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px;">
+                            ${isTie ? 'Current Tie' : 'Elected Officer'}
+                        </div>
+                        <div class="winner-name">${winnerText}</div>
+                    </div>
+                    <span class="winner-label">${isTie ? '👔 Tie' : '🏆 Elected'}</span>
+                </div>
+
+                <div class="chart-box">
+                    <canvas id="canvas-${cardId}"></canvas>
+                </div>
+
+                <ul class="voters-list">
+                    ${sortedData.map((entry, index) => {
+                        const name = entry[0];
+                        const count = entry[1];
+                        const isWinner = count === maxVotes;
+                        const colorIndex = isWinner ? 0 : (index || 1) % DONUT_COLORS.length;
+                        
+                        return `
+                            <li class="candidate-row ${isWinner ? 'is-winner-row' : ''}">
+                                <span>
+                                    <span class="color-indicator" style="background:${DONUT_COLORS[colorIndex]}"></span>
+                                    ${name}
+                                </span>
+                                <span class="total-badge">${count} votes</span>
+                            </li>
+                        `;
+                    }).join('')}
+                </ul>
+            `;
+            grid.appendChild(card);
+
+            // Populate localized donut charts using Chart.js configurations
+            new Chart(document.getElementById(`canvas-${cardId}`), {
+                type: 'doughnut',
+                data: {
+                    labels: sortedData.map(d => d[0]),
+                    datasets: [{
+                        data: sortedData.map(d => d[1]),
+                        backgroundColor: sortedData.map((d, idx) => d[1] === maxVotes ? DONUT_COLORS[0] : DONUT_COLORS[idx % DONUT_COLORS.length]),
+                        borderWidth: 0,
+                        offset: sortedData.map(d => d[1] === maxVotes ? 8 : 0)
+                    }]
+                },
+                options: {
+                    cutout: '70%',
+                    plugins: { legend: { display: false } }
+                }
+            });
+        });
+
+    } catch (err) {
+        document.getElementById("totalBallots").innerText = "⚠️ Failed to sync live announcement database.";
+        grid.innerHTML = "<p style='grid-column:1/-1; padding:50px; color:#fb7185; text-align:center;'>Unable to pull result logs. Try refreshing the page.</p>";
+    }
+}
+
+// Initialize on viewport access
+window.onload = renderPublicResults;
+</script>
+</body>
+</html>
